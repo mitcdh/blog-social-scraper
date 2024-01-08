@@ -1,0 +1,8 @@
+[submodule "flickr-album-scraper"]
+	path = flickr-album-scraper
+	url = https://github.com/mitcdh/flickr-album-scraper.git
+	branch = main
+[submodule "youtube-channel-scraper"]
+	path = youtube-channel-scraper
+	url = https://github.com/mitcdh/youtube-channel-scraper.git
+	branch = main
