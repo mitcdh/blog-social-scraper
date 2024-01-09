@@ -1,6 +1,6 @@
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 const listAllVideos = require('./youtube-channel-scraper/youtube-channel-scraper');
 const getAlbums = require('./flickr-album-scraper/flickr-album-scraper');
 
@@ -12,7 +12,7 @@ function sanitizeTitle(title) {
 }
 
 function formatDate(dateString) {
-    // Adjust for Flickr date format (YYYY:MM:DD HH:MM:SS)
+    // Adjust for Flickr EXIF date format (YYYY:MM:DD HH:MM:SS)
     const correctedFormat = dateString.replace(/:/g, '-').slice(0, 10);
     const date = new Date(correctedFormat);
 
@@ -42,8 +42,23 @@ async function downloadImage(url, filename, title) {
     }
 
     try {
-        const response = await axios.get(url, { responseType: 'arraybuffer' });
-        fs.writeFileSync(imagePath, response.data);
+        const request = https.get(url, function(response) {
+            if (response.statusCode === 200) {
+                const fileStream = fs.createWriteStream(imagePath);
+                response.pipe(fileStream);
+                fileStream.on('finish', function() {
+                    fileStream.close();
+                    console.log('Downloaded image:', filename);
+                });
+            } else {
+                console.log(`Error: Response status code ${response.statusCode} for image: ${url}`);
+                response.resume(); // Consume response data to free up memory
+            }
+        });
+
+        request.on('error', function(error) {
+            console.error(`Error downloading image: ${url}`, error);
+        });
     } catch (error) {
         console.error(`Error downloading image: ${url}`, error);
     }
