@@ -5,7 +5,7 @@ const { exec } = require('child_process');
 const listAllVideos = require('./youtube-channel-scraper/youtube-channel-scraper');
 const getAlbums = require('./flickr-album-scraper/flickr-album-scraper');
 
-const CONTENT_DIR = path.join(process.cwd(), 'content');
+const CONTENT_DIR = path.join(process.cwd(), 'content/posts');
 const IMAGES_DIR = path.join(process.cwd(), 'static/images');
 
 function sanitizeTitle(title) {
