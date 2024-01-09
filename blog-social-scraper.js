@@ -5,8 +5,8 @@ const { exec } = require('child_process');
 const listAllVideos = require('./youtube-channel-scraper/youtube-channel-scraper');
 const getAlbums = require('./flickr-album-scraper/flickr-album-scraper');
 
-const CONTENT_DIR = path.join(__dirname, 'content');
-const IMAGES_DIR = path.join(__dirname, 'static/images');
+const CONTENT_DIR = path.join(process.cwd(), 'content');
+const IMAGES_DIR = path.join(process.cwd(), 'static/images');
 
 function sanitizeTitle(title) {
     return title.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
