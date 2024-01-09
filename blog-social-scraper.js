@@ -2,6 +2,12 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+try {
+    require('dotenv').config();
+  } catch (error) {
+    console.warn("dotenv is not available. Continuing without loading environment variables from .env file.");
+}
+
 const listAllVideos = require('./youtube-channel-scraper/youtube-channel-scraper');
 const getAlbums = require('./flickr-album-scraper/flickr-album-scraper');
 
