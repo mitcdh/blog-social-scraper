@@ -14,6 +14,15 @@ const getAlbums = require('./flickr-album-scraper/flickr-album-scraper');
 const CONTENT_DIR = path.join(process.cwd(), 'content/posts');
 const IMAGES_DIR = path.join(process.cwd(), 'static/images');
 
+function listDirectoryFiles(directory) {
+    try {
+        return fs.readdirSync(directory).map(file => path.join(directory, file));
+    } catch (error) {
+        console.error(`Error listing files in directory: ${directory}`, error);
+        return [];
+    }
+}
+
 function sanitizeTitle(title) {
     return title.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
 }
@@ -148,6 +157,9 @@ async function main() {
         console.error('Error in main:', error);
     }
 
+    const contentFiles = listDirectoryFiles(CONTENT_DIR);
+    const imageFiles = listDirectoryFiles(IMAGES_DIR);
+
     // Execute BUILD_COMMAND and capture output
     if (process.env.BUILD_COMMAND) {
         const buildProcess = exec(process.env.BUILD_COMMAND, (error, stdout, stderr) => {
@@ -156,11 +168,11 @@ async function main() {
             buildOutput.exitCode = error ? error.code : 0;
 
             // Log the final output including build command results
-            console.log(JSON.stringify({ postsInfo, buildOutput }, null, 2));
+            console.log(JSON.stringify({ postsInfo, contentFiles, imageFiles, buildOutput }, null, 2));
         });
     } else {
         // Log the output if there is no build command
-        console.log(JSON.stringify({ postsInfo }, null, 2));
+        console.log(JSON.stringify({ postsInfo, contentFiles, imageFiles }, null, 2));
     }
 }
 
