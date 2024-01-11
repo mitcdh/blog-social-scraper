@@ -46,28 +46,47 @@ async function downloadImage(url, filename, title) {
     }
 
     try {
-        const request = https.get(url, function(response) {
-            if (response.statusCode === 200) {
-                const fileStream = fs.createWriteStream(imagePath);
-                response.pipe(fileStream);
-                fileStream.on('finish', function() {
-                    fileStream.close();
-                });
+        const response = await downloadWithRedirects(url);
+
+        if (response.statusCode === 200) {
+            await streamToFile(response, imagePath);
+            if (fs.existsSync(imagePath)) {
+                return { downloaded: true, imagePath };
             } else {
-                console.error(`Error: Response status code ${response.statusCode} for image: ${url}`);
-                response.resume();
+                throw new Error('File was not saved correctly.');
             }
-        });
-
-        request.on('error', function(error) {
-            console.error(`Error downloading image: ${url}`, error);
-        });
-
-        return { downloaded: true, imagePath };
+        } else {
+            throw new Error(`Response status code ${response.statusCode}`);
+        }
     } catch (error) {
         console.error(`Error downloading image: ${url}`, error);
         return { downloaded: false, imagePath };
     }
+}
+
+function downloadWithRedirects(url) {
+    return new Promise((resolve, reject) => {
+        const request = https.get(url, function(response) {
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                resolve(downloadWithRedirects(response.headers.location));
+            } else if (response.statusCode === 200) {
+                resolve(response);
+            } else {
+                reject(new Error(`Response status code ${response.statusCode}`));
+            }
+        });
+
+        request.on('error', (error) => reject(error));
+    });
+}
+
+function streamToFile(stream, filePath) {
+    return new Promise((resolve, reject) => {
+        const fileStream = fs.createWriteStream(filePath);
+        stream.pipe(fileStream);
+        fileStream.on('finish', () => resolve());
+        fileStream.on('error', reject);
+    });
 }
 
 function createHugoPost(title, description, date, embedUrl, tags) {
