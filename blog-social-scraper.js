@@ -45,24 +45,39 @@ async function downloadImage(url, filename, title) {
         return { downloaded: false, imagePath };
     }
 
-    try {
-        const response = await downloadWithRedirects(url);
+    const maxRetries = 3;
+    let currentRetry = 0;
+    const retryableStatusCodes = [429, 500, 502, 503, 504];
+    const retryTimeout = 5000;
 
-        if (response.statusCode === 200) {
-            await streamToFile(response, imagePath);
-            if (fs.existsSync(imagePath)) {
-                return { downloaded: true, imagePath };
+    while (currentRetry < maxRetries) {
+        try {
+            const response = await downloadWithRedirects(url);
+
+            if (response.statusCode === 200) {
+                await streamToFile(response, imagePath);
+                if (fs.existsSync(imagePath)) {
+                    return { downloaded: true, imagePath };
+                } else {
+                    throw new Error('File was not saved correctly.');
+                }
             } else {
-                throw new Error('File was not saved correctly.');
+                throw new Error(`Response status code ${response.statusCode}`);
             }
-        } else {
-            throw new Error(`Response status code ${response.statusCode}`);
+        } catch (error) {
+            const isRetryableError = retryableStatusCodes.includes(error.statusCode) || error.message.includes('ETIMEDOUT') || error.message.includes('ECONNRESET');
+            if (currentRetry < maxRetries - 1 && isRetryableError) {
+                console.error(`Error: downloading image ${url} with status code ${error.statusCode}. Retrying...`);
+                currentRetry++;
+                await new Promise(resolve => setTimeout(resolve, retryTimeout)); // Wait for 5 seconds before retrying
+            } else {
+                console.error(`Error: downloading image ${url}`, error);
+                return { downloaded: false, imagePath };
+            }
         }
-    } catch (error) {
-        console.error(`Error downloading image: ${url}`, error);
-        return { downloaded: false, imagePath };
     }
 }
+
 
 function downloadWithRedirects(url) {
     return new Promise((resolve, reject) => {
