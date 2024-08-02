@@ -22,6 +22,7 @@
 
 ## Troubleshooting
 
+*  Any albums prefixed with a '#' or '@' will be excepted as it's assumed they are either compiliations or one off transfers of pictures.
 *  Confirm the correct setup of the required API keys.
 *  Refer to the console output for detailed error messages if errors occur.
 *  Ensure the build command (if utilized) is properly configured and functional.

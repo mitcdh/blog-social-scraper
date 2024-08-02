@@ -170,22 +170,24 @@ async function main() {
 
         const albums = await getAlbums();
         for (const album of albums) {
-            const formattedDate = formatDate(album.lastPhotoTimestamp);
-            const albumTitle = album.title.replace(/^\d{4}-\d{2}\s*/, '');
-            const sanitizedTitle = sanitizeTitle(albumTitle);
+            if (!album.title.startsWith('#') && !album.title.startsWith('@')) {
+                const formattedDate = formatDate(album.lastPhotoTimestamp);
+                const albumTitle = album.title.replace(/^\d{4}-\d{2}\s*/, '');
+                const sanitizedTitle = sanitizeTitle(albumTitle);
 
-            const imageResult = await downloadImage(album.featureImageUrl, sanitizedTitle, album.title);
-            const postResult = createHugoPost(albumTitle, album.description, formattedDate, album.link, ['Album']);
+                const imageResult = await downloadImage(album.featureImageUrl, sanitizedTitle, album.title);
+                const postResult = createHugoPost(albumTitle, album.description, formattedDate, album.link, ['Album']);
 
-            postsInfo.push({
-                title: albumTitle,
-                timestamp: formattedDate,
-                markdownFilePath: postResult.filePath,
-                imageFilePath: imageResult.imagePath,
-                imageDownloaded: imageResult.downloaded,
-                postCreated: postResult.created,
-                sourceScraper: 'flickr-album-scraper'
-            });
+                postsInfo.push({
+                  title: albumTitle,
+                  timestamp: formattedDate,
+                  markdownFilePath: postResult.filePath,
+                  imageFilePath: imageResult.imagePath,
+                  imageDownloaded: imageResult.downloaded,
+                  postCreated: postResult.created,
+                  sourceScraper: 'flickr-album-scraper'
+                });
+            }
         }
     } catch (error) {
         console.error('Error in main:', error);
