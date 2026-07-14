@@ -1,28 +1,59 @@
 # Blog Social Scraper
 ## Overview
 
-`blog-social-scraper` is a custom Node.js script specifically developed for how my personal site at [blog.mitcdh.au](https://blog.mitcdh.au) works, but it might help you too. This tool automates the process of extracting multimedia content from a designated YouTube channel and a Flickr user account, allowing them to be output into markdown files for populating a blog. It streamlines my workflow by automatically generating Hugo-compatible blog posts.
+`blog-social-scraper` is a custom Node.js script specifically developed for how my personal site at [blog.mitcdh.au](https://blog.mitcdh.au) works, but it might help you too. It creates Hugo posts from YouTube videos, Flickr albums, written Letterboxd film reviews, and written Hardcover book reviews.
 
 ## Prerequisites
 
 *  Node.js installed on your system.
-*  API access set up for YouTube and Flickr (API keys required).
+*  API access set up for YouTube, Flickr, and Hardcover.
+*  A public Letterboxd profile with its RSS feed enabled.
 *  Optionally, a static site generator is installed (for example, to run `Hugo`).
 
 ## Installation and Setup
 
-1.  Clone the Repository: Clone this repository to your machine with submodules `git clone --recurse-submodules -j8 https://github.com/mitcdh/blog-social-scraper`.
-2.  Set API Keys and Build Command: Define necessary API keys (`FLICKR_API_KEY`, `YOUTUBE_API_KEY`) and `BUILD_COMMAND` in your environment or a `.env` file.
-3.  Edit the heredoc with the post format you desire.
+1.  Clone the repository normally: `git clone https://github.com/mitcdh/blog-social-scraper`. All four scraper modules are included directly in the repository.
+2.  Define the required environment variables in the build environment or a local `.env` file:
+
+    ```sh
+    FLICKR_API_KEY=...
+    FLICKR_USER_ID=...
+    YOUTUBE_API_KEY=...
+    YOUTUBE_CHANNEL_ID=...
+    LETTERBOXD_USERNAME=...
+    HARDCOVER_API_TOKEN=...
+    BUILD_COMMAND=hugo
+    ```
+
+    `HARDCOVER_API_TOKEN` is a private account credential and must never be exposed to browser-side code or committed to the repository.
 
 ## Running the Script
 
 1.  Execute: Run the script with `node blog-social-scraper`.
 2.  Build Process: If `BUILD_COMMAND` is set, the script will execute it and include its output and status in the final JSON report.
 
+Each source runs independently. A missing configuration skips only that source, and a failed API does not prevent the remaining sources or the configured build command from running.
+
+## Review Posts
+
+Only written reviews are imported. Letterboxd watch-only diary entries are ignored, and Hardcover is queried with `has_review: true`.
+
+Review posts use the review publication timestamp as the Hugo date, download the film poster or book cover into `static/images`, and include `Review` plus either `Film` or `Book` tags. Their filenames include the review date and media type so a later re-review cannot overwrite an earlier post.
+
+Letterboxd's RSS posters are upgraded to 1200×1800 before download. Hugo can then generate the responsive title-image variants used by the blog, including 2× display densities.
+
+## Tests
+
+Run the parser and post-generation tests with:
+
+```sh
+node --test test/review-scrapers.test.js
+```
+
 ## Troubleshooting
 
 *  Any albums prefixed with a '#' or '@' will be excepted as it's assumed they are either compiliations or one off transfers of pictures.
-*  Confirm the correct setup of the required API keys.
+*  Confirm the correct setup of the required API keys and usernames.
+*  Hardcover tokens expire periodically; create a new token in Hardcover account settings when authentication starts returning HTTP 401.
 *  Refer to the console output for detailed error messages if errors occur.
 *  Ensure the build command (if utilized) is properly configured and functional.
