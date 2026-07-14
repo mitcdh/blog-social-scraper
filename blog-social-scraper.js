@@ -254,10 +254,10 @@ function createReviewPost(review, sourceKey, sourceLabel, options = {}) {
         return { created: false, filePath, slug };
     }
 
-    const rating = review.rating ? `**Rating:** ${review.rating}/5\n\n` : '';
+    const ratingDescription = review.rating ? `Rating: ${review.rating}/5` : 'Unrated';
     const content = `---
 title: ${JSON.stringify(displayTitle)}
-description: ${JSON.stringify(createExcerpt(review.review))}
+description: ${JSON.stringify(ratingDescription)}
 date: ${formatDate(review.reviewDate)}
 image: ${JSON.stringify(`/images/${imageFilename}`)}
 tags: ${JSON.stringify(tags)}
@@ -265,7 +265,7 @@ review_source: ${JSON.stringify(sourceKey)}
 review_url: ${JSON.stringify(review.link)}
 ---
 
-${rating}${review.review}
+${review.review}
 
 [View this review on ${sourceLabel}](${review.link})
 `;

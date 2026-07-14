@@ -77,7 +77,7 @@ test('Hardcover scraper identifies the current user and paginates written review
   assert.match(calls[1].query, /has_review:\s*\{ _eq: true \}/);
 });
 
-test('review posts use the review timestamp, cover, shared Review tag, and source link', () => {
+test('review posts use the rating as their description and keep the review in the body', () => {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-review-post-'));
   const contentDir = path.join(temporaryRoot, 'content', 'posts');
   fs.mkdirSync(contentDir, { recursive: true });
@@ -96,10 +96,13 @@ test('review posts use the review timestamp, cover, shared Review tag, and sourc
     const post = fs.readFileSync(result.filePath, 'utf8');
     assert.equal(path.basename(result.filePath), 'example-film-2026-02-01-film-review.md');
     assert.match(post, /title: "Example Film \(2026\)"/);
+    assert.match(post, /description: "Rating: 4\.5\/5"/);
     assert.match(post, /date: 2026-02-01 00:53:47 \+1300/);
     assert.match(post, /image: "\/images\/example-film-2026-02-01-film-review\.jpg"/);
     assert.match(post, /tags: \["Review","Film"\]/);
     assert.match(post, /review_source: "letterboxd"/);
+    assert.equal(post.match(/A detailed review with enough text to use as its description\./g)?.length, 1);
+    assert.doesNotMatch(post, /\*\*Rating:\*\*/);
     assert.match(post, /\[View this review on Letterboxd\]\(https:\/\/letterboxd\.com/);
 
     const bookResult = socialScraper.createReviewPost({
@@ -112,8 +115,11 @@ test('review posts use the review timestamp, cover, shared Review tag, and sourc
     }, 'hardcover', 'Hardcover', { contentDir });
 
     const bookPost = fs.readFileSync(bookResult.filePath, 'utf8');
+    assert.match(bookPost, /description: "Rating: 4\/5"/);
     assert.match(bookPost, /tags: \["Review","Book"\]/);
     assert.match(bookPost, /review_source: "hardcover"/);
+    assert.equal(bookPost.match(/A detailed book review with enough text to use as its description\./g)?.length, 1);
+    assert.doesNotMatch(bookPost, /\*\*Rating:\*\*/);
     assert.match(bookPost, /\[View this review on Hardcover\]\(https:\/\/hardcover\.app/);
   } finally {
     fs.rmSync(temporaryRoot, { recursive: true, force: true });
