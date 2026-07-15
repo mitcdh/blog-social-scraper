@@ -21,6 +21,8 @@
     YOUTUBE_API_KEY=...
     YOUTUBE_CHANNEL_ID=...
     LETTERBOXD_USERNAME=...
+    LETTERBOXD_ARCHIVE_PATH=build/social-data/reviews.csv
+    LETTERBOXD_ARCHIVE_CONCURRENCY=4
     HARDCOVER_API_TOKEN=...
     BUILD_COMMAND=hugo
     ```
@@ -38,9 +40,11 @@ Each source runs independently. A missing configuration skips only that source, 
 
 Only written reviews are imported. Letterboxd watch-only diary entries are ignored, and Hardcover is queried with `has_review: true`.
 
+The Letterboxd scraper can merge an account export with the live RSS feed. `LETTERBOXD_ARCHIVE_PATH` points to Letterboxd's `reviews.csv`; in this blog it defaults to `build/social-data/reviews.csv`. RSS versions replace matching archive rows so the latest timestamp, link, and direct poster are used without generating a duplicate post.
+
 Review posts use the review publication timestamp as the Hugo date, download the film poster or book cover into `static/images`, and include `Review` plus either `Film` or `Book` tags. Their filenames include the review date and media type so a later re-review cannot overwrite an earlier post.
 
-Letterboxd's RSS posters are upgraded to 1200×1800 before download. Hugo can then generate the responsive title-image variants used by the blog, including 2× display densities.
+Letterboxd's RSS posters are upgraded to 1200×1800 before download. Archive rows discover their poster from the public Letterboxd review page at build time and request the same retina dimensions. If an archive poster cannot be resolved, the review page is still generated without a broken image. Hugo can then generate the responsive title-image variants used by the blog, including 2× display densities.
 
 ## Tests
 

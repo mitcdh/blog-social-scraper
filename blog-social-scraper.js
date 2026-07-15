@@ -15,6 +15,10 @@ const getHardcoverReviews = require('./hardcover-review-scraper/hardcover-review
 
 const CONTENT_DIR = path.join(process.cwd(), 'content/posts');
 const IMAGES_DIR = path.join(process.cwd(), 'static/images');
+const LETTERBOXD_ARCHIVE_PATH = path.resolve(
+    process.cwd(),
+    process.env.LETTERBOXD_ARCHIVE_PATH || 'build/social-data/reviews.csv'
+);
 
 function listDirectoryFiles(directory) {
     try {
@@ -249,6 +253,9 @@ function createReviewPost(review, sourceKey, sourceLabel, options = {}) {
         ? `${review.title} (${review.year})`
         : review.title;
     const tags = sourceKey === 'letterboxd' ? ['Review', 'Film'] : ['Review', 'Book'];
+    const imageFrontMatter = options.includeImage === false
+        ? ''
+        : `image: ${JSON.stringify(`/images/${imageFilename}`)}\n`;
 
     if (fs.existsSync(filePath)) {
         return { created: false, filePath, slug };
@@ -259,7 +266,7 @@ function createReviewPost(review, sourceKey, sourceLabel, options = {}) {
 title: ${JSON.stringify(displayTitle)}
 description: ${JSON.stringify(ratingDescription)}
 date: ${formatDate(review.reviewDate)}
-image: ${JSON.stringify(`/images/${imageFilename}`)}
+${imageFrontMatter}review_id: ${JSON.stringify(review.id)}
 tags: ${JSON.stringify(tags)}
 review_source: ${JSON.stringify(sourceKey)}
 review_url: ${JSON.stringify(review.link)}
@@ -287,6 +294,10 @@ async function runConfiguredScraper(name, requiredVariables, action, scraperErro
         return;
     }
 
+    await runScraper(name, action, scraperErrors);
+}
+
+async function runScraper(name, action, scraperErrors) {
     try {
         await action();
     } catch (error) {
@@ -302,8 +313,9 @@ async function addReviewPosts(reviews, sourceKey, sourceLabel, postsInfo, scrape
             const slug = reviewSlug(review, sourceKey);
             const imageResult = await downloadImage(review.coverImageUrl, slug, review.title);
             const expectedPostPath = path.join(CONTENT_DIR, `${slug}.md`);
-            const postResult = imageResult.available
-                ? createReviewPost(review, sourceKey, sourceLabel)
+            const allowMissingArchiveCover = sourceKey === 'letterboxd' && review.archive;
+            const postResult = imageResult.available || allowMissingArchiveCover
+                ? createReviewPost(review, sourceKey, sourceLabel, { includeImage: imageResult.available })
                 : { created: false, filePath: expectedPostPath };
 
             postsInfo.push({
@@ -314,8 +326,13 @@ async function addReviewPosts(reviews, sourceKey, sourceLabel, postsInfo, scrape
                 imageDownloaded: imageResult.downloaded,
                 imageAvailable: imageResult.available,
                 postCreated: postResult.created,
-                postSkippedReason: imageResult.available ? null : 'Cover image unavailable',
+                postSkippedReason: imageResult.available
+                    ? null
+                    : allowMissingArchiveCover
+                        ? 'Cover image unavailable; archive post created without an image'
+                        : 'Cover image unavailable',
                 reviewUrl: review.link,
+                reviewArchive: Boolean(review.archive),
                 sourceScraper: `${sourceKey}-review-scraper`
             });
         } catch (error) {
@@ -382,10 +399,14 @@ async function main() {
         }
     }, scraperErrors);
 
-    await runConfiguredScraper('letterboxd-review-scraper', ['LETTERBOXD_USERNAME'], async () => {
-        const reviews = await getLetterboxdReviews();
-        await addReviewPosts(reviews, 'letterboxd', 'Letterboxd', postsInfo, scraperErrors);
-    }, scraperErrors);
+    if (process.env.LETTERBOXD_USERNAME || fs.existsSync(LETTERBOXD_ARCHIVE_PATH)) {
+        await runScraper('letterboxd-review-scraper', async () => {
+            const reviews = await getLetterboxdReviews({ archivePath: LETTERBOXD_ARCHIVE_PATH });
+            await addReviewPosts(reviews, 'letterboxd', 'Letterboxd', postsInfo, scraperErrors);
+        }, scraperErrors);
+    } else {
+        console.warn(`Skipping letterboxd-review-scraper: missing LETTERBOXD_USERNAME and archive ${LETTERBOXD_ARCHIVE_PATH}`);
+    }
 
     await runConfiguredScraper('hardcover-review-scraper', ['HARDCOVER_API_TOKEN'], async () => {
         const reviews = await getHardcoverReviews();

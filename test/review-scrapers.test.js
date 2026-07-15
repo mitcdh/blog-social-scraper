@@ -41,6 +41,66 @@ test('Letterboxd parser returns written reviews and ignores watch-only entries',
   assert.match(reviews[0].coverImageUrl, /-0-1200-0-1800-crop\.jpg\?v=test$/);
 });
 
+test('Letterboxd archive parser handles quoted commas, newlines, and escaped quotes', () => {
+  const csv = `Date,Name,Year,Letterboxd URI,Rating,Rewatch,Review,Tags,Watched Date
+2026-01-30,"Synecdoche, New York",2008,https://boxd.it/example,5,Yes,"First paragraph.
+
+It said ""keep living"".",profile,2025-02-04
+`;
+
+  const reviews = getLetterboxdReviews.parseArchiveCsv(csv);
+  assert.equal(reviews.length, 1);
+  assert.equal(reviews[0].id, 'letterboxd-archive-example');
+  assert.equal(reviews[0].title, 'Synecdoche, New York');
+  assert.equal(reviews[0].review, 'First paragraph.\n\nIt said "keep living".');
+  assert.equal(reviews[0].reviewDate, '2026-01-30');
+  assert.equal(reviews[0].archive, true);
+});
+
+test('Letterboxd RSS entries replace matching archive rows and retain archive identity', () => {
+  const archive = [{
+    id: 'letterboxd-archive-example',
+    title: 'Example Film',
+    year: '2026',
+    rating: '4',
+    review: 'The same review.',
+    reviewDate: '2026-02-01',
+    watchedDate: '2026-01-10',
+    link: 'https://boxd.it/example',
+    coverImageUrl: '',
+    archive: true
+  }];
+  const feed = [{
+    id: 'letterboxd-review-123',
+    title: 'Example Film',
+    year: '2026',
+    rating: '4',
+    review: 'An edited version of the review.',
+    reviewDate: 'Mon, 2 Feb 2026 00:53:47 +1300',
+    watchedDate: '2026-01-10',
+    link: 'https://letterboxd.com/example/film/example-film/',
+    coverImageUrl: 'https://a.ltrbxd.com/example-0-1200-0-1800-crop.jpg'
+  }];
+
+  const reviews = getLetterboxdReviews.mergeReviews(archive, feed);
+  assert.equal(reviews.length, 1);
+  assert.equal(reviews[0].id, 'letterboxd-review-123');
+  assert.equal(reviews[0].archive, true);
+  assert.equal(reviews[0].coverImageUrl, feed[0].coverImageUrl);
+});
+
+test('Letterboxd archive poster extraction prefers and upgrades portrait artwork', () => {
+  const html = `
+    <meta property="og:image" content="https://a.ltrbxd.com/resized/sm/upload/backdrop-1200-1200-675-675-crop.jpg">
+    <img src="https://a.ltrbxd.com/resized/film-poster/1/2/3/example-poster-0-230-0-345-crop.jpg?v=abc">
+  `;
+
+  assert.equal(
+    getLetterboxdReviews.extractPosterUrl(html),
+    'https://a.ltrbxd.com/resized/film-poster/1/2/3/example-poster-0-1200-0-1800-crop.jpg?v=abc'
+  );
+});
+
 test('Hardcover scraper identifies the current user and paginates written reviews', async () => {
   const calls = [];
   const request = async (query, variables) => {
@@ -99,11 +159,36 @@ test('review posts use the rating as their description and keep the review in th
     assert.match(post, /description: "Rating: 4\.5\/5"/);
     assert.match(post, /date: 2026-02-01 00:53:47 \+1300/);
     assert.match(post, /image: "\/images\/example-film-2026-02-01-film-review\.jpg"/);
+    assert.match(post, /review_id: "letterboxd-review-123"/);
     assert.match(post, /tags: \["Review","Film"\]/);
     assert.match(post, /review_source: "letterboxd"/);
     assert.equal(post.match(/A detailed review with enough text to use as its description\./g)?.length, 1);
     assert.doesNotMatch(post, /\*\*Rating:\*\*/);
     assert.match(post, /\[View this review on Letterboxd\]\(https:\/\/letterboxd\.com/);
+
+    const duplicateResult = socialScraper.createReviewPost({
+      id: 'letterboxd-review-123',
+      title: 'Example Film',
+      year: '2026',
+      rating: '4.5',
+      review: 'A detailed review with enough text to use as its description.',
+      reviewDate: 'Sun, 1 Feb 2026 00:53:47 +1300',
+      link: 'https://letterboxd.com/example/film/example-film/'
+    }, 'letterboxd', 'Letterboxd', { contentDir });
+    assert.equal(duplicateResult.created, false);
+
+    const noCoverResult = socialScraper.createReviewPost({
+      id: 'letterboxd-archive-no-cover',
+      title: 'Archive Without Cover',
+      year: '2025',
+      review: 'This archive entry remains publishable if poster discovery fails.',
+      reviewDate: '2026-01-01',
+      link: 'https://boxd.it/no-cover',
+      archive: true
+    }, 'letterboxd', 'Letterboxd', { contentDir, includeImage: false });
+    const noCoverPost = fs.readFileSync(noCoverResult.filePath, 'utf8');
+    assert.doesNotMatch(noCoverPost, /^image:/m);
+    assert.match(noCoverPost, /review_id: "letterboxd-archive-no-cover"/);
 
     const bookResult = socialScraper.createReviewPost({
       id: 'hardcover-review-456',
